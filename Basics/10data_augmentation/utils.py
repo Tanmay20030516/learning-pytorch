@@ -28,5 +28,5 @@ def plot_examples(images, bboxes=None):
 def visualise_bbox(img, bbox, class_name, color=(255, 0, 0), thickness=4):
     x_min, y_min, x_max, y_max = map(int, bbox)
     cv2.rectangle(img, (x_min, y_min), (x_max, y_max), color, thickness)
-    img = cv2.putText(img, class_name, (x_min, y_min), cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 255), 2, cv2.LINE_AA)
+    img = cv2.putText(img, class_name, (x_min, y_min), cv2.FONT_HERSHEY_PLAIN, 2, (0, 0, 255), 2, cv2.LINE_AA)
     return img
