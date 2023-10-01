@@ -164,7 +164,7 @@ class InceptionNet(nn.Module):
             return x
 
 
-print("inceptionNet/googleNet created...")
+print("inceptionNet (googleNet) created...")
 
 print("testing implemented model...")
 if __name__ == "__main__":
