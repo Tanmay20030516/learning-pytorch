@@ -172,7 +172,7 @@ if __name__ == "__main__":
     x = torch.randn(BATCH_SIZE, 3, 224, 224).to(torch.device("cuda"))
     model = InceptionNet(aux_logits=True, num_classes=1000).to(torch.device("cuda"))
     print(summary(model, (3, 224, 224)))
-    print(model(x)[2].shape)
+    print(model(x)[2].shape)  # 3 outputs, 2 from auxiliary blocks and one from final output block
     assert model(x)[2].shape == torch.Size([BATCH_SIZE, 1000])
 
 
