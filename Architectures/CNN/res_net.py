@@ -93,7 +93,7 @@ class ResNet(nn.Module):
         self.block1 = self.make_block(  # i/p = (64, 56, 56)
             ResBlock, num_residual_blocks=res_block_list[0], intermediate_channels=64, stride=1
         )  # (64, 56, 56)->[(64, 56, 56)->(64, 56, 56)->(256, 56, 56)]--->[(64, 56, 56)->(64, 56, 56)->(256, 56, 56)]--> ... so on
-        # (64, 56, 56)-> identity mapping -> (256, 56, 56)------------/ \-------------------------------------------/
+        #           \--> identity mapping -> (256, 56, 56)------------/ \-------------------------------------------/
         #                                    (added to above main path)
         self.block2 = self.make_block(
             ResBlock, num_residual_blocks=res_block_list[1], intermediate_channels=128, stride=2
