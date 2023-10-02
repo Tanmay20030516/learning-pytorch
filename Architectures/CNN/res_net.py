@@ -1,4 +1,5 @@
 # ResNet paper: https://arxiv.org/pdf/1512.03385
+# below comments are with respect to ResNet50
 
 # Imports
 import torch
@@ -60,10 +61,11 @@ class ResBlock(nn.Module):
         x = self.batchnorm3(x)
 
         if self.identity_down_sample is not None:
+            # we enter this block only for 1st block for each of block1, block2, block3 and block4
             # these are generally 1x1 convolutions to match-up the output channels
             identity = self.identity_down_sample(identity)
 
-        x += identity
+        x += identity  # since the channels are matched up, we add the output and input
         x = self.relu(x)
         return x
 
@@ -82,15 +84,17 @@ class ResNet(nn.Module):
             stride=2,
             padding=3,  # "same" convolutions
             bias=False
-        )
+        )  # o/p = (64, 112, 112)
         self.batchnorm = nn.BatchNorm2d(64)
         self.relu = nn.ReLU()
-        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)  # o/p = (64, 56, 56)
 
         # now we begin making our residual blocks
-        self.block1 = self.make_block(
+        self.block1 = self.make_block(  # i/p = (64, 56, 56)
             ResBlock, num_residual_blocks=res_block_list[0], intermediate_channels=64, stride=1
-        )  # out_channels = 64*4
+        )  # (64, 56, 56)->[(64, 56, 56)->(64, 56, 56)->(256, 56, 56)]--->[(64, 56, 56)->(64, 56, 56)->(256, 56, 56)]--> ... so on
+        # (64, 56, 56)-> identity mapping -> (256, 56, 56)------------/ \-------------------------------------------/
+        #                                    (added to above main path)
         self.block2 = self.make_block(
             ResBlock, num_residual_blocks=res_block_list[1], intermediate_channels=128, stride=2
         )
@@ -132,13 +136,13 @@ class ResNet(nn.Module):
         identity_down_sample = None
         blocks = []
 
-        # stride != 1 -> size of input i.e. n_H, n_W changed
-        # self.in_channels != intermediate_channels*4
+        # stride != 1 -> size of input i.e. n_H, n_W changed; for block2, block3, block4
+        # self.in_channels != intermediate_channels*4; for first block of each of block1, block2, block3, block4
         if stride != 1 or self.in_channels != intermediate_channels*4:
             identity_down_sample = nn.Sequential(
                 nn.Conv2d(
                     in_channels=self.in_channels,
-                    out_channels=intermediate_channels*4,
+                    out_channels=intermediate_channels*4,  # expansion of channels at end of each res-block
                     kernel_size=1,
                     stride=stride,
                     bias=False
@@ -148,12 +152,16 @@ class ResNet(nn.Module):
 
         blocks.append(  # the layer that changes number of channels
             ResBlock(self.in_channels, intermediate_channels, identity_down_sample, stride)
-        )
+        )  # the identity map has corrected the input dimensions to match (intermediate_channels*4, .., ..)
+        # so now we can directly add this updated channel (x) to output of remaining res-blocks
 
         self.in_channels = intermediate_channels*4
+        # channel expansion after first block, so need to change the in_channel value for remaining res-blocks
 
         for i in range(num_residual_blocks-1):
-            blocks.append(ResBlock(self.in_channels, intermediate_channels))  # mapping 256 (in) -> 64 (out),... 64*4
+            blocks.append(
+                ResBlock(self.in_channels, intermediate_channels)
+            )  # mapping 256 (in) -> 64 (out, of next block),... 64*4
 
         return nn.Sequential(*blocks)
 
