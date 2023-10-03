@@ -51,7 +51,7 @@ def iou(pred_bboxes, true_bboxes, box_format):
     intersection = (x2 - x1).clamp(0) * (y2 - y1).clamp(0)  # .clamp(0) deals with no intersection case
     box1_area = abs((box1_x2 - box1_x1) * (box1_y2 - box1_y1))
     box2_area = abs((box2_x2 - box2_x1) * (box2_y2 - box2_y1))
-    union = box1_area + box2_area - intersection
+    union = box1_area + box2_area - intersection + 1e-8
 
     return intersection/union
 
