@@ -1,3 +1,5 @@
+# https://www.v7labs.com/blog/mean-average-precision
+
 import torch
 from collections import Counter
 from metric_intersection_over_union import iou
