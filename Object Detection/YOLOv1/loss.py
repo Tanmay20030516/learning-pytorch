@@ -4,27 +4,22 @@ import torch
 import torch.nn as nn
 from utils import iou
 
-BATCH_SIZE = 1
-NUM_CLASSES = 20
-pc = 1
-y = torch.randn((BATCH_SIZE, 7, 7, (NUM_CLASSES + pc + 4)))
-# print(y[..., 21:25])
-print(y[..., 21:25].shape)
-print(y[..., 20].shape)  # 20 corresponds to pc (i.e. 1 or 0)
-y = torch.unsqueeze(y[..., 20], 3)
-# print(y)
-print(y.shape)
-
 
 class YOLOv1Loss(nn.Module):
     def __init__(self, S=7, B=2, C=20):
+        """
+        :param S: number of splits
+        :param B: number of detections per cell
+        :param C: number of classes
+        """
         super(YOLOv1Loss, self).__init__()
         self.S = S
         self.B = B
         self.C = C
 
-        self.lambda_noobj = 0.5  # from paper
-        self.lambda_coord = 5  # from paper
+        # from paper
+        self.lambda_noobj = 0.5  # to decrease impact of loss from no object cells
+        self.lambda_coord = 5  # emphasise more on localisation loss
 
         self.mse = nn.MSELoss(reduction="sum")  # just sum the losses
 
@@ -93,7 +88,7 @@ class YOLOv1Loss(nn.Module):
 
         # COMBINING ALL LOSS COMPONENTS
         complete_loss = (
-            self.lambda_coord*box_loss
+            + self.lambda_coord*box_loss
             + object_loss
             + self.lambda_noobj*no_object_loss
             + classification_loss
