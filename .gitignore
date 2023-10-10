@@ -163,3 +163,5 @@ cython_debug/
 # dirs/files to not track
 Basics/dataset/
 Basics/runs/
+/Object Detection/YOLOv1/data/images/
+/Object Detection/YOLOv1/data/labels/
