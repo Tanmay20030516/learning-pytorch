@@ -1,0 +1,5 @@
+data
+|- train_images
+|- train_masks
+|- val_images
+|- val_masks

@@ -66,9 +66,9 @@ class UNET(nn.Module):
         skip_connections.reverse()
 
         # creating green arrows [up sampling]
-        for i in range(0, len(self.ups), 2):
+        for i in range(0, len(self.ups), 2):  # step of 2 as we want only the conv
             x = self.ups[i](x)
-            skip_connection = skip_connections[i//2]
+            skip_connection = skip_connections[i//2]  # because our loop is running with step 2
 
             if x.shape != skip_connection.shape:  # if w, h not a multiple of 16, there is flooring of values
                 x = TF.resize(x, size=skip_connection.shape[2:])  # resize just h and w of the feature map
