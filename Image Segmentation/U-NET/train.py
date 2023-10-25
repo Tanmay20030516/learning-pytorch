@@ -99,7 +99,7 @@ def main():
 
     if LOAD_MODEL:
         try:
-            load_checkpoint(torch.load("checkpoint.pth.tar"), model)
+            load_checkpoint(torch.load("checkpoint.pth"), model)
         except EOFError:  # end of file error - if no such file found, do nothing (pass)
             pass
 
