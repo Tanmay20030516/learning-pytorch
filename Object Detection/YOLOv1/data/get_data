@@ -7,11 +7,11 @@
                                                               
 ## OR DOWNLOAD FROM HERE (FASTER DOWNLOAD)                                          
 # VOC2007 DATASET                                                              
-wget http://host.robots.ox.ac.uk/pascal/VOC/voc2007/VOCtrainval_06-Nov-2007.ta
+wget http://host.robots.ox.ac.uk/pascal/VOC/voc2007/VOCtrainval_06-Nov-2007.tar
 wget http://host.robots.ox.ac.uk/pascal/VOC/voc2007/VOCtest_06-Nov-2007.tar # 
 
 # VOC2012 DATASET                                                              
-wget http://host.robots.ox.ac.uk/pascal/VOC/voc2012/VOCtrainval_11-May-2012.ta
+wget http://host.robots.ox.ac.uk/pascal/VOC/voc2012/VOCtrainval_11-May-2012.tar
 
 # Extract tar files
 tar xf VOCtrainval_11-May-2012.tar
@@ -44,9 +44,9 @@ cp VOCdevkit/*.jpg data/images/
 cp VOCdevkit/VOC2007/labels/*.txt data/labels/
 cp VOCdevkit/VOC2012/labels/*.txt data/labels/
 
-mkdir data                                                                              
-mkdir data/images                                                                       
-mkdir data/labels                                                                       
+#mkdir data
+#mkdir data/images
+#mkdir data/labels
                                                                                         
 mv VOCdevkit/VOC2007/JPEGImages/*.jpg data/images/                                      
 mv VOCdevkit/VOC2012/JPEGImages/*.jpg data/images/                                      
