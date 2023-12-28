@@ -1,8 +1,7 @@
 import torch
 import torch.nn as nn
 import torchvision.models as models
-import statistics
-from torchsummary import summary
+# from torchsummary import summary
 from torchvision.models import ResNet50_Weights
 
 # print(models.resnet50(weights=ResNet50_Weights.IMAGENET1K_V1))
