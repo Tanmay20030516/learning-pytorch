@@ -31,7 +31,7 @@ german.build_vocab(train_data, max_size=10000, min_freq=2)
 train_iterator, validation_iterator, test_iterator = BucketIterator.splits(
     datasets=(train_data, validation_data, test_data),
     batch_size=64,
-    device="cuda"
+    device=torch.device("cuda") if torch.cuda.is_available() else "cpu"
 )
 
 
