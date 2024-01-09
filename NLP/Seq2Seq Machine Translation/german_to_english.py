@@ -122,7 +122,7 @@ class Seq2SeqModel(nn.Module):
             output, (hidden_state, cell_state) = self.decoder(x, hidden_state, cell_state)
             # print("output, (hidden_state, cell_state) = self.decoder(x, hidden_state, cell_state)")
             # print(output.shape, " - ", hidden_state.shape, " - ", cell_state.shape)
-            # (batch_size, target_vocab_size) - (2, batch_size, embedding_size) - (2, batch_size, embedding_size)
+            # (batch_size, target_vocab_size) - (num_layers, batch_size, embedding_size) - (num_layers, batch_size, embedding_size)
             # store the next output prediction
             outputs[t] = output  # output.shape - (N, target_vocab_size)
             # get index of the best word (most probable) predicted by decoder
