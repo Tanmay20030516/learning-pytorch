@@ -31,10 +31,10 @@ class SelfAttention(nn.Module):
     def forward(self, queries, keys, values, mask):
         """
         Forward pass for self attention
-        :param queries: `(N, d_q, embed_dim)`; `d_q` is the length of query
-        :param keys: `(N, d_k, embed_dim)`
-        :param values: `(N, d_v, embed_dim)`
-        :param mask: a padding mask of shape `(N, num_heads, d_q, d_k)`
+        :param queries: ``(N, d_q, embed_dim)``; ``d_q`` is the length of query
+        :param keys: ``(N, d_k, embed_dim)``
+        :param values: ``(N, d_v, embed_dim)``
+        :param mask: a ``padding mask`` of shape ``(N, num_heads, d_q, d_k)``
                      that masks the `<PAD>` token, so that those `<PAD>`
                      positions do not contribute to softmax
         :return: output contextual vector
@@ -84,7 +84,7 @@ class EncoderBlock(nn.Module):
         self.embed_dim = embed_dim
         self.num_heads = num_heads
 
-        self.attention = SelfAttention(num_heads, embed_dim)
+        self.multi_head_attention = SelfAttention(num_heads, embed_dim)
         self.dropout = nn.Dropout(dropout)
         self.layer_norm1 = nn.LayerNorm(embed_dim)
         self.layer_norm2 = nn.LayerNorm(embed_dim)
@@ -96,7 +96,7 @@ class EncoderBlock(nn.Module):
 
     def forward(self, queries, keys, values, mask):
         # 1st group of layers
-        sdp_attn = self.attention(queries, keys, values, mask)
+        sdp_attn = self.multi_head_attention(queries, keys, values, mask)
         x = self.layer_norm1(sdp_attn + queries)
         x = self.dropout(x)
         # 2nd group of layers
@@ -117,7 +117,7 @@ class PositionalEmbedding(nn.Module):
     def __init__(self, embed_dim, dropout_prob, max_len=5000):
         super(PositionalEmbedding, self).__init__()
         self.dropout = nn.Dropout(dropout_prob)
-        self.positional_embedding = self.make_pos_emb(max_len, embed_dim)
+        self.positional_embedding = self.make_pos_emb(max_len, embed_dim).to(device)
 
     @staticmethod
     def make_pos_emb(max_len, embed_dim):
@@ -136,7 +136,7 @@ class PositionalEmbedding(nn.Module):
 
     def forward(self, x):
         # x.shape: (N, seq_len, embed_dim)
-        x = x + self.positional_embedding[:, : x.size(1)]
+        x = x + self.positional_embedding[:, : x.size(1), :]
         return self.dropout(x)
 
 
@@ -162,17 +162,138 @@ class Encoder(nn.Module):
 
     def forward(self, x, mask):
         N, seq_len = x.shape
-        positions = torch.arange(0, seq_len).expand(N, seq_len).to(self.device)
+        # positions = torch.arange(0, seq_len).expand(N, seq_len).to(self.device)
+        # add self.position_embedding(positions) to self.word_embedding(x)
+        # positional embedding that still works
         out = self.dropout(
-            self.word_embedding(x) + self.position_embedding(positions)
+            (self.word_embedding(x) + self.position_embedding(self.word_embedding(x)))
         )
         # here in encoder, q k v all are same
         for layer in self.layers:
             # according to paper, 6 such blocks were used
+            # mask is the padding mask
             out = layer(out, out, out, mask)
 
         return out
 
 
+class DecoderBlock(nn.Module):
+    def __init__(self, embed_dim, num_heads, forward_expansion, dropout_prob, device):
+        super(DecoderBlock, self).__init__()
+        self.attention = SelfAttention(num_heads, embed_dim)
+        self.norm = nn.LayerNorm(embed_dim)
+        self.masked_multi_head_attn = EncoderBlock(embed_dim, dropout_prob, num_heads, forward_expansion)
+        self.device = device
+        self.encoder_decoder_multi_head_attn = EncoderBlock(embed_dim, dropout_prob, num_heads, forward_expansion)
+        self.dropout = nn.Dropout(dropout_prob)
 
+    def forward(self, x, keys, values, src_mask, trg_mask):
+        """
+        Forward pass for decoder block
+        :param x: output sequence
+        :param keys: from encoder block
+        :param values: from encoder block
+        :param src_mask: padding mask for ``x``
+        :param trg_mask: mask for `masked self attention`
+        :return:
+        """
+
+        masked_self_attention = self.masked_multi_head_attn(x, x, x, trg_mask)
+        queries = self.dropout(self.norm(masked_self_attention + x))
+        out = self.encoder_decoder_multi_head_attn(queries, keys, values, src_mask)
+
+        return out
+
+
+class Decoder(nn.Module):
+    def __init__(self, trg_vocab_size, embed_dim, num_layers, num_heads,
+                 forward_expansion, dropout_prob, device, max_len):
+        super(Decoder, self).__init__()
+        self.device = device
+        self.word_embedding = nn.Embedding(trg_vocab_size, embed_dim)
+        self.position_embedding = PositionalEmbedding(embed_dim, dropout_prob, max_len)
+        self.layers = nn.ModuleList(
+            [
+                DecoderBlock(embed_dim, num_heads, forward_expansion, dropout_prob, device)
+                for _ in range(num_layers)
+            ]
+        )
+        self.fc_out = nn.Linear(embed_dim, trg_vocab_size)
+        self.dropout = nn.Dropout(dropout_prob)
+
+    def forward(self, x, enc_out, src_mask, trg_mask):
+        """
+        :param x: target sequence used as queries
+        :param enc_out: keys and values used from encoder
+        :param src_mask: padding mask
+        :param trg_mask: look ahead mask
+        :return:
+        """
+        N, seq_len = x.shape
+        x = self.dropout(
+            (self.word_embedding(x) + self.position_embedding(self.word_embedding(x)))
+        )
+
+        for layer in self.layers:
+            # queries, keys, values, padding_mask, look_ahead_mask
+            x = layer(x, enc_out, enc_out, src_mask, trg_mask)
+
+        # the output for calculating probabilities
+        out = self.fc_out(x)
+        return out
+
+
+class Transformer(nn.Module):
+    def __init__(self, src_vocab_size, trg_vocab_size, src_pad_idx, trg_pad_idx,
+                 device, embed_dim=512, num_layers=6, forward_expansion=4,
+                 num_heads=8, dropout_prob=0, max_len=100):
+        super(Transformer, self).__init__()
+        self.encoder = Encoder(src_vocab_size, embed_dim, num_layers, num_heads,
+                               device, forward_expansion, dropout_prob, max_len)
+        self.decoder = Decoder(trg_vocab_size, embed_dim, num_layers, num_heads,
+                               forward_expansion, dropout_prob, device, max_len)
+        self.src_pad_idx = src_pad_idx
+        self.trg_pad_idx = trg_pad_idx
+        self.device = device
+
+    def make_src_mask(self, src):
+        """padding mask for input"""
+        # jaha jaha pad index mile, uske alawa har jagah 1 dal do
+        src_mask = (torch.Tensor(src != self.src_pad_idx)).unsqueeze(1).unsqueeze(2)
+        # src_mask.shape : (N, 1, 1, src_len)
+        return src_mask.to(self.device)
+
+    def make_trg_mask(self, trg):
+        """look ahead mask for target"""
+        # lower triangular matrix as mask
+        # trg.shape : (N, trg_len)
+        trg_mask = torch.tril(
+            torch.ones((trg.shape[1], trg.shape[1]))
+        ).expand(trg.shape[0], 1, trg.shape[1], trg.shape[1])
+        # trg_mask: (N, 1, trg_len, trg_len)
+        return trg_mask.to(self.device)
+
+    def forward(self, src, trg):
+        src_mask = self.make_src_mask(src)
+        trg_mask = self.make_trg_mask(trg)
+        enc_out = self.encoder(src, src_mask)
+        out = self.decoder(trg, enc_out, src_mask, trg_mask)
+
+        return out
+
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+x = torch.tensor([[1, 5, 6, 4, 3, 9, 5, 2, 0], [1, 8, 7, 3, 4, 5, 6, 7, 2]]).to(device)
+trg = torch.tensor([[1, 7, 4, 3, 5, 9, 2, 0], [1, 5, 6, 8, 4, 7, 6, 2]]).to(device)
+src_pad_idx = 0
+trg_pad_idx = 0
+src_vocab_size = 10
+trg_vocab_size = 10
+model = Transformer(
+    src_vocab_size, trg_vocab_size, src_pad_idx, trg_pad_idx, device=device
+).to(device)
+out = model(x, trg[:, :-1])
+
+print(out.shape)
+# print(out)
 
